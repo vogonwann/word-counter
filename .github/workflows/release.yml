@@ -15,14 +15,11 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        target: [x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu]
+        target: [x86_64-unknown-linux-gnu]
         include:
           - target: x86_64-unknown-linux-gnu
             arch: x86_64
             deb_arch: amd64
-          - target: aarch64-unknown-linux-gnu
-            arch: aarch64
-            deb_arch: arm64
 
     steps:
       - name: Checkout code
@@ -109,28 +106,16 @@ jobs:
 
           ### Installation
 
-          **Debian/Ubuntu (x86_64):**
+          **Debian/Ubuntu:**
           \`\`\`bash
           wget https://github.com/wann/word_counter/releases/download/$TAG/word-counter_${VERSION}_amd64.deb
           sudo dpkg -i word-counter_${VERSION}_amd64.deb
           \`\`\`
 
-          **Debian/Ubuntu (ARM64):**
-          \`\`\`bash
-          wget https://github.com/wann/word_counter/releases/download/$TAG/word-counter_${VERSION}_arm64.deb
-          sudo dpkg -i word-counter_${VERSION}_arm64.deb
-          \`\`\`
-
-          **Fedora/RHEL/CentOS/openSUSE (x86_64):**
+          **Fedora/RHEL/CentOS/openSUSE:**
           \`\`\`bash
           wget https://github.com/wann/word_counter/releases/download/$TAG/word-counter-${VERSION}-1.x86_64.rpm
           sudo rpm -i word-counter-${VERSION}-1.x86_64.rpm
-          \`\`\`
-
-          **Fedora/RHEL/CentOS/openSUSE (ARM64):**
-          \`\`\`bash
-          wget https://github.com/wann/word_counter/releases/download/$TAG/word-counter-${VERSION}-1.aarch64.rpm
-          sudo rpm -i word-counter-${VERSION}-1.aarch64.rpm
           \`\`\`
 
           ### Usage
