@@ -1,0 +1,180 @@
+name: Build and Release Packages
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # e.g., v0.1.0, v1.0.0
+  workflow_dispatch:  # Allow manual trigger
+
+permissions:
+  contents: write  # Required for creating releases
+
+jobs:
+  build-packages:
+    name: Build packages for ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu]
+        include:
+          - target: x86_64-unknown-linux-gnu
+            arch: x86_64
+            deb_arch: amd64
+          - target: aarch64-unknown-linux-gnu
+            arch: aarch64
+            deb_arch: arm64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install cargo-deb and cargo-generate-rpm
+        run: |
+          cargo install cargo-deb
+          cargo install cargo-generate-rpm
+
+      - name: Build release binary
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Build DEB package
+        run: cargo deb --target ${{ matrix.target }} --no-build
+
+      - name: Build RPM package
+        run: cargo generate-rpm --target ${{ matrix.target }}
+
+      - name: Rename DEB package
+        run: |
+          deb_file=$(find target/${{ matrix.target }}/debian -name "*.deb" -type f)
+          if [ -n "$deb_file" ]; then
+            mv "$deb_file" "word-counter_${{ matrix.target }}_${{ matrix.deb_arch }}.deb"
+          else
+            echo "No .deb file found"
+            exit 1
+          fi
+
+      - name: Rename RPM package
+        run: |
+          rpm_file=$(find target/${{ matrix.target }}/generate-rpm -name "*.rpm" -type f)
+          if [ -n "$rpm_file" ]; then
+            mv "$rpm_file" "word-counter-${{ matrix.target }}-${{ matrix.arch }}.rpm"
+          else
+            echo "No .rpm file found"
+            exit 1
+          fi
+
+      - name: Upload DEB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: deb-${{ matrix.target }}
+          path: word-counter_${{ matrix.target }}_${{ matrix.deb_arch }}.deb
+
+      - name: Upload RPM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpm-${{ matrix.target }}
+          path: word-counter-${{ matrix.target }}-${{ matrix.arch }}.rpm
+
+  create-release:
+    name: Create GitHub Release
+    needs: build-packages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Display artifacts
+        run: ls -R artifacts
+
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          # Extract version from tag (remove 'v' prefix)
+          VERSION="${TAG#v}"
+
+          # Create release notes
+          cat > release_notes.md << 'EOF'
+          ## word_counter $VERSION
+
+          ### Installation
+
+          **Debian/Ubuntu (x86_64):**
+          \`\`\`bash
+          wget https://github.com/wann/word_counter/releases/download/$TAG/word-counter_${VERSION}_amd64.deb
+          sudo dpkg -i word-counter_${VERSION}_amd64.deb
+          \`\`\`
+
+          **Debian/Ubuntu (ARM64):**
+          \`\`\`bash
+          wget https://github.com/wann/word_counter/releases/download/$TAG/word-counter_${VERSION}_arm64.deb
+          sudo dpkg -i word-counter_${VERSION}_arm64.deb
+          \`\`\`
+
+          **Fedora/RHEL/CentOS/openSUSE (x86_64):**
+          \`\`\`bash
+          wget https://github.com/wann/word_counter/releases/download/$TAG/word-counter-${VERSION}-1.x86_64.rpm
+          sudo rpm -i word-counter-${VERSION}-1.x86_64.rpm
+          \`\`\`
+
+          **Fedora/RHEL/CentOS/openSUSE (ARM64):**
+          \`\`\`bash
+          wget https://github.com/wann/word_counter/releases/download/$TAG/word-counter-${VERSION}-1.aarch64.rpm
+          sudo rpm -i word-counter-${VERSION}-1.aarch64.rpm
+          \`\`\`
+
+          ### Usage
+
+          After installation, the `word_counter` command will be available:
+
+          \`\`\`bash
+          # Count words from stdin
+          echo "hello world hello" | word_counter --top 2 --min-length 1
+
+          # Count words from a file
+          word_counter --top 5 --min-length 3 --file input.txt
+
+          # Output in JSON format
+          word_counter --top 5 --min-length 3 --file input.txt --json
+          \`\`\`
+          EOF
+
+          # Create release with all assets
+          gh release create "$TAG" \
+            --title "word_counter $VERSION" \
+            --notes-file release_notes.md \
+            artifacts/*/*.deb \
+            artifacts/*/*.rpm
+
+  verify-packages:
+    name: Verify package installation
+    needs: build-packages
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [x86_64-unknown-linux-gnu]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download DEB artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: deb-${{ matrix.target }}
+          path: .
+
+      - name: Install and test DEB package
+        run: |
+          sudo dpkg -i word-counter_${{ matrix.target }}_amd64.deb || sudo apt-get -f install -y
+          word_counter --help
+          echo "test test hello world" | word_counter --top 2 --min-length 1

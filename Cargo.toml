@@ -1,0 +1,34 @@
+[package]
+name = "word_counter"
+version = "0.1.0"
+edition = "2024"
+description = "A fast CLI word frequency counter"
+license = "MIT"
+homepage = "https://github.com/vogonpoet/word_counter"
+repository = "https://github.com/vogonpoet/word_counter"
+readme = "README.md"
+
+[package.metadata.deb]
+name = "word-counter"
+maintainer = "Ivan Janjic ivan@janjic.lol"
+copyright = "2026, Ivan Janjic ivan@janjic.lol"
+extended-description = """\
+word_counter is a command-line tool that counts word frequency in text files \
+or from stdin. It supports filtering by minimum word length, outputting the top \
+N most frequent words, and can produce results in plain text or JSON format."""
+assets = [
+    ["target/release/word_counter", "usr/bin/", "755"],
+    ["README.md", "usr/share/doc/word-counter/README", "644"],
+    ["LICENSE", "usr/share/doc/word-counter/LICENSE", "644"],
+]
+
+[package.metadata.generate-rpm]
+assets = [
+    { source = "target/release/word_counter", dest = "/usr/bin/word_counter", mode = "0755" },
+    { source = "README.md", dest = "/usr/share/doc/word_counter/README", mode = "0644", doc = true },
+    { source = "LICENSE", dest = "/usr/share/doc/word_counter/LICENSE", mode = "0644", doc = true },
+]
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
