@@ -14,7 +14,7 @@ A fast command-line tool for counting word frequency in text files or from stdin
 
 ### From Pre-built Packages
 
-Pre-built DEB and RPM packages are available on the [Releases](https://github.com/vogonpoet/word_counter/releases) page.
+Pre-built DEB and RPM packages are available on the [Releases](https://github.com/vogonwannt/word_counter/releases) page.
 
 **Debian/Ubuntu (x86_64):**
 ```bash
